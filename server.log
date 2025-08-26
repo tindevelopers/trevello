@@ -1,0 +1,20 @@
+  ▲ Next.js 14.2.28
+  - Local:        http://localhost:3000
+  - Environments: .env
+  - Experiments (use with caution):
+    · outputFileTracingRoot
+
+ ✓ Starting...
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+ ✓ Ready in 2.9s
+ ✓ Compiled /api/generate-itinerary in 333ms (58 modules)
+prisma:query INSERT INTO "public"."itinerary_requests" ("id","agentEmail","clientName","destination","duration","budget","travelStyle","specialRequests","status","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING "public"."itinerary_requests"."id", "public"."itinerary_requests"."agentEmail", "public"."itinerary_requests"."clientName", "public"."itinerary_requests"."destination", "public"."itinerary_requests"."duration", "public"."itinerary_requests"."budget", "public"."itinerary_requests"."travelStyle", "public"."itinerary_requests"."specialRequests", "public"."itinerary_requests"."generatedItinerary", "public"."itinerary_requests"."status", "public"."itinerary_requests"."createdAt", "public"."itinerary_requests"."updatedAt"
+prisma:query SELECT 1
+prisma:query UPDATE "public"."itinerary_requests" SET "generatedItinerary" = $1, "status" = $2, "updatedAt" = $3 WHERE ("public"."itinerary_requests"."id" = $4 AND 1=1) RETURNING "public"."itinerary_requests"."id", "public"."itinerary_requests"."agentEmail", "public"."itinerary_requests"."clientName", "public"."itinerary_requests"."destination", "public"."itinerary_requests"."duration", "public"."itinerary_requests"."budget", "public"."itinerary_requests"."travelStyle", "public"."itinerary_requests"."specialRequests", "public"."itinerary_requests"."generatedItinerary", "public"."itinerary_requests"."status", "public"."itinerary_requests"."createdAt", "public"."itinerary_requests"."updatedAt"
+ POST /api/generate-itinerary 200 in 38575ms
+ ✓ Compiled in 29ms
+[?25h

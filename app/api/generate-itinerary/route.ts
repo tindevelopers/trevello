@@ -80,7 +80,7 @@ Respond with raw text only. Do not include code blocks, markdown, or any other f
       }
     ]
 
-    // Call the LLM API with streaming
+    // Call the LLM API (non-streaming for better reliability)
     const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -88,103 +88,40 @@ Respond with raw text only. Do not include code blocks, markdown, or any other f
         'Authorization': `Bearer ${process.env.ABACUSAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: 'gpt-4o-mini',
         messages: messages,
-        stream: true,
+        stream: false,
         max_tokens: 3000,
       }),
     })
 
-    if (!response?.body) {
-      throw new Error('No response body from LLM API')
+    if (!response.ok) {
+      throw new Error(`LLM API error: ${response.status} ${response.statusText}`)
     }
 
-    let buffer = ''
-    let partialRead = ''
+    const data = await response.json()
+    const generatedItinerary = data?.choices?.[0]?.message?.content || 'Unable to generate itinerary'
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = response.body?.getReader()
-        const decoder = new TextDecoder()
-        const encoder = new TextEncoder()
-        
-        try {
-          while (true) {
-            const { done, value } = await reader?.read() || { done: true, value: undefined }
-            if (done) break
-
-            partialRead += decoder.decode(value, { stream: true })
-            let lines = partialRead.split('\n')
-            partialRead = lines.pop() || ''
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6)
-                if (data === '[DONE]') {
-                  // Save the completed itinerary to database
-                  await prisma.itineraryRequest.update({
-                    where: { id: itineraryRequest.id },
-                    data: {
-                      generatedItinerary: buffer,
-                      status: 'completed'
-                    }
-                  })
-
-                  const finalResult = {
-                    itinerary: buffer,
-                    destination,
-                    clientName,
-                    duration,
-                    requestId: itineraryRequest.id
-                  }
-
-                  const finalData = JSON.stringify({
-                    status: 'completed',
-                    result: finalResult
-                  })
-                  controller.enqueue(encoder.encode(`data: ${finalData}\n\n`))
-                  controller.close()
-                  return
-                }
-                try {
-                  const parsed = JSON.parse(data)
-                  buffer += parsed?.choices?.[0]?.delta?.content || ''
-                  const progressData = JSON.stringify({
-                    status: 'processing',
-                    message: 'Generating itinerary...'
-                  })
-                  controller.enqueue(encoder.encode(`data: ${progressData}\n\n`))
-                } catch (e) {
-                  // Skip invalid JSON
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Stream error:', error)
-          
-          // Update database with error status
-          await prisma.itineraryRequest.update({
-            where: { id: itineraryRequest.id },
-            data: { status: 'failed' }
-          })
-
-          const errorData = JSON.stringify({
-            status: 'error',
-            message: 'Failed to generate itinerary'
-          })
-          controller.enqueue(encoder.encode(`data: ${errorData}\n\n`))
-          controller.close()
-        }
-      },
+    // Save the completed itinerary to database
+    await prisma.itineraryRequest.update({
+      where: { id: itineraryRequest.id },
+      data: {
+        generatedItinerary,
+        status: 'completed'
+      }
     })
 
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
+    const result = {
+      itinerary: generatedItinerary,
+      destination,
+      clientName,
+      duration,
+      requestId: itineraryRequest.id
+    }
+
+    return NextResponse.json({
+      status: 'completed',
+      result
     })
 
   } catch (error) {

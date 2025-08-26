@@ -80,6 +80,11 @@ export default function AIItineraryCreator() {
     setGeneratedItinerary(null)
 
     try {
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setProgress(prev => Math.min(prev + 10, 90))
+      }, 500)
+
       const response = await fetch('/api/generate-itinerary', {
         method: 'POST',
         headers: {
@@ -88,51 +93,27 @@ export default function AIItineraryCreator() {
         body: JSON.stringify(formData),
       })
 
-      if (!response?.body) {
-        throw new Error('No response body')
+      clearInterval(progressInterval)
+
+      if (!response.ok) {
+        throw new Error('Failed to generate itinerary')
       }
 
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let partialRead = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        partialRead += decoder.decode(value, { stream: true })
-        let lines = partialRead.split('\n')
-        partialRead = lines.pop() || ''
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') {
-              return
-            }
-            try {
-              const parsed = JSON.parse(data)
-              if (parsed?.status === 'processing') {
-                setProgress(prev => Math.min(prev + 1, 99))
-              } else if (parsed?.status === 'completed') {
-                setGeneratedItinerary(parsed?.result)
-                setProgress(100)
-                setIsGenerating(false)
-                return
-              } else if (parsed?.status === 'error') {
-                throw new Error(parsed?.message || 'Generation failed')
-              }
-            } catch (e) {
-              // Skip invalid JSON
-            }
-          }
-        }
+      const data = await response.json()
+      
+      if (data?.status === 'completed') {
+        setGeneratedItinerary(data.result)
+        setProgress(100)
+        setIsGenerating(false)
+        return
+      } else {
+        throw new Error('Failed to generate itinerary')
       }
     } catch (error) {
       console.error('Itinerary generation error:', error)
       setIsGenerating(false)
-      // Handle error state
+      setProgress(0)
+      // Handle error state - you might want to add a toast notification here
     }
   }
 
