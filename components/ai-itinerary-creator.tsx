@@ -47,6 +47,21 @@ export default function AIItineraryCreator() {
   const [generatedItinerary, setGeneratedItinerary] = useState<GeneratedItinerary | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
+  
+  // Test data for development
+  const testData: ItineraryFormData = {
+    agentEmail: 'agent@trevello.com',
+    clientName: 'Sarah & Michael Johnson',
+    destination: 'Barcelona, Spain',
+    duration: '5 days / 4 nights',
+    budget: '$2,500 - $5,000 per person',
+    travelStyle: 'Cultural Immersion',
+    specialRequests: 'Love architecture and local food scene. Interested in Gaudi buildings and authentic tapas experiences. No dietary restrictions.'
+  }
+
+  const fillTestData = () => {
+    setFormData(testData)
+  }
 
   const travelStyles = [
     'Luxury Travel',
@@ -292,6 +307,18 @@ export default function AIItineraryCreator() {
                 placeholder="Any dietary restrictions, accessibility needs, special interests, or specific requests..."
               />
             </div>
+
+            {/* Test Button - Only in development */}
+            {process.env.NODE_ENV === 'development' && (
+              <button
+                type="button"
+                onClick={fillTestData}
+                className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-all duration-300 flex items-center justify-center space-x-2 border-2 border-dashed border-gray-300"
+              >
+                <Send className="w-4 h-4" />
+                <span>🧪 Fill Test Data (Dev Only)</span>
+              </button>
+            )}
 
             {/* Submit Button */}
             <button
