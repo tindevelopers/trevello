@@ -35,19 +35,37 @@ export async function POST(request: NextRequest) {
       hasDatabaseUrl: !!process.env.DATABASE_URL
     })
 
-    // Save itinerary request to database
-    const itineraryRequest = await prisma.itineraryRequest.create({
-      data: {
+    // Try to save to database, but continue if it fails
+    let itineraryRequest = null
+    try {
+      itineraryRequest = await prisma.itineraryRequest.create({
+        data: {
+          agentEmail,
+          clientName,
+          destination,
+          duration,
+          budget: budget || null,
+          travelStyle: travelStyle || null,
+          specialRequests: specialRequests || null,
+          status: 'processing'
+        }
+      })
+      console.log('Database save successful')
+    } catch (dbError) {
+      console.log('Database save failed, continuing without DB:', dbError instanceof Error ? dbError.message : 'Unknown error')
+      // Create a mock request object to continue processing
+      itineraryRequest = {
+        id: `mock-${Date.now()}`,
         agentEmail,
         clientName,
         destination,
         duration,
-        budget: budget || null,
-        travelStyle: travelStyle || null,
-        specialRequests: specialRequests || null,
+        budget,
+        travelStyle,
+        specialRequests,
         status: 'processing'
       }
-    })
+    }
 
     // Prepare the prompt for the AI
     let prompt = `Create a detailed, personalized travel itinerary for ${clientName} visiting ${destination} for ${duration}.
@@ -111,14 +129,23 @@ Respond with raw text only. Do not include code blocks, markdown, or any other f
     const data = await response.json()
     const generatedItinerary = data?.choices?.[0]?.message?.content || 'Unable to generate itinerary'
 
-    // Save the completed itinerary to database
-    await prisma.itineraryRequest.update({
-      where: { id: itineraryRequest.id },
-      data: {
-        generatedItinerary,
-        status: 'completed'
+    // Save the completed itinerary to database (if we have a real DB record)
+    try {
+      if (itineraryRequest && typeof itineraryRequest.id === 'string' && !itineraryRequest.id.startsWith('mock-')) {
+        await prisma.itineraryRequest.update({
+          where: { id: itineraryRequest.id },
+          data: {
+            generatedItinerary,
+            status: 'completed'
+          }
+        })
+        console.log('Database update successful')
+      } else {
+        console.log('Skipping database update (mock request or no DB connection)')
       }
-    })
+    } catch (dbError) {
+      console.log('Database update failed, but itinerary generated successfully:', dbError instanceof Error ? dbError.message : 'Unknown error')
+    }
 
     const result = {
       itinerary: generatedItinerary,
