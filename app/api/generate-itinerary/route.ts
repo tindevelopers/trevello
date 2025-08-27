@@ -6,7 +6,10 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('API called - starting itinerary generation')
+    
     const body = await request.json()
+    console.log('Request body received:', { ...body, agentEmail: '***' })
     
     const {
       agentEmail,
@@ -20,11 +23,17 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!agentEmail || !clientName || !destination || !duration) {
+      console.log('Missing required fields:', { agentEmail: !!agentEmail, clientName: !!clientName, destination: !!destination, duration: !!duration })
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       )
     }
+
+    console.log('Environment check:', {
+      hasAbacusKey: !!process.env.ABACUSAI_API_KEY,
+      hasDatabaseUrl: !!process.env.DATABASE_URL
+    })
 
     // Save itinerary request to database
     const itineraryRequest = await prisma.itineraryRequest.create({
@@ -126,8 +135,16 @@ Respond with raw text only. Do not include code blocks, markdown, or any other f
 
   } catch (error) {
     console.error('Itinerary generation error:', error)
+    console.error('Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace'
+    })
     return NextResponse.json(
-      { error: 'Failed to generate itinerary' },
+      { 
+        error: 'Failed to generate itinerary',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }
