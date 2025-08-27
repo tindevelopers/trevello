@@ -94,7 +94,17 @@ export default function AIItineraryCreator() {
     setProgress(0)
     setGeneratedItinerary(null)
 
+    // Simulate progress during generation
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        if (prev < 90) return prev + Math.random() * 10
+        return prev
+      })
+    }, 500)
+
     try {
+      console.log('Starting itinerary generation...', formData)
+      
       const response = await fetch('/api/generate-itinerary', {
         method: 'POST',
         headers: {
@@ -103,51 +113,34 @@ export default function AIItineraryCreator() {
         body: JSON.stringify(formData),
       })
 
-      if (!response?.body) {
-        throw new Error('No response body')
+      clearInterval(progressInterval)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData?.error || `HTTP ${response.status}`)
       }
 
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let partialRead = ''
+      const data = await response.json()
+      console.log('API Response:', data)
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        partialRead += decoder.decode(value, { stream: true })
-        let lines = partialRead.split('\n')
-        partialRead = lines.pop() || ''
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') {
-              return
-            }
-            try {
-              const parsed = JSON.parse(data)
-              if (parsed?.status === 'processing') {
-                setProgress(prev => Math.min(prev + 1, 99))
-              } else if (parsed?.status === 'completed') {
-                setGeneratedItinerary(parsed?.result)
-                setProgress(100)
-                setIsGenerating(false)
-                return
-              } else if (parsed?.status === 'error') {
-                throw new Error(parsed?.message || 'Generation failed')
-              }
-            } catch (e) {
-              // Skip invalid JSON
-            }
-          }
-        }
+      if (data?.status === 'completed' && data?.result) {
+        setGeneratedItinerary(data.result)
+        setProgress(100)
+        setIsGenerating(false)
+      } else if (data?.error) {
+        throw new Error(data.error)
+      } else {
+        throw new Error('Invalid response format')
       }
+      
     } catch (error) {
+      clearInterval(progressInterval)
       console.error('Itinerary generation error:', error)
       setIsGenerating(false)
-      // Handle error state
+      setProgress(0)
+      
+      // Show error to user
+      alert(`Error generating itinerary: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -177,14 +170,33 @@ export default function AIItineraryCreator() {
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Left: Input Form */}
         <div className="bg-white rounded-2xl shadow-lg p-8">
-          <div className="flex items-center space-x-3 mb-8">
-            <div className="w-10 h-10 bg-trevello-purple rounded-lg flex items-center justify-center">
-              <Bot className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-trevello-purple rounded-lg flex items-center justify-center">
+                <Bot className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">AI Assistant</h2>
+                <p className="text-trevello-gray">Tell me about your client's dream trip</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">AI Assistant</h2>
-              <p className="text-trevello-gray">Tell me about your client's dream trip</p>
-            </div>
+            
+            {/* Test Button - Always visible for testing (will show in development) */}
+            <button
+              type="button"
+              onClick={fillTestData}
+              className="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600 transition-all duration-300 flex items-center space-x-2 shadow-lg border-2 border-red-600"
+              title="Fill form with test data"
+            >
+              <Send className="w-4 h-4" />
+              <span>Test Data</span>
+            </button>
+          </div>
+          
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-700">
+              💡 <strong>Quick Testing:</strong> Use the red "Test Data" button above to quickly fill the form with Barcelona sample data for testing the itinerary generator.
+            </p>
           </div>
 
           <form onSubmit={handleGenerateItinerary} className="space-y-6">
@@ -308,17 +320,7 @@ export default function AIItineraryCreator() {
               />
             </div>
 
-            {/* Test Button - Only in development */}
-            {process.env.NODE_ENV === 'development' && (
-              <button
-                type="button"
-                onClick={fillTestData}
-                className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-all duration-300 flex items-center justify-center space-x-2 border-2 border-dashed border-gray-300"
-              >
-                <Send className="w-4 h-4" />
-                <span>🧪 Fill Test Data (Dev Only)</span>
-              </button>
-            )}
+
 
             {/* Submit Button */}
             <button
